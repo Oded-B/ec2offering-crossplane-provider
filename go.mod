@@ -1,4 +1,4 @@
-module github.com/crossplane/provider-template
+module github.com/Oded-B/ec2offering-crossplane-provider
 
 go 1.23.0
 

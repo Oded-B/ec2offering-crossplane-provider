@@ -31,14 +31,11 @@ kind_lower=$(echo "${KIND}" | tr "[:upper:]" "[:lower:]")
 group_lower=$(echo "${GROUP}" | tr "[:upper:]" "[:lower:]")
 
 mkdir -p "apis/${group_lower}/${APIVERSION}"
-${GOMPLATE} < "hack/helpers/apis/GROUP_LOWER/GROUP_LOWER.go.tmpl" > "apis/${group_lower}/${group_lower}.go"
-${GOMPLATE} < "hack/helpers/apis/GROUP_LOWER/APIVERSION/KIND_LOWER_types.go.tmpl" > "apis/${group_lower}/${APIVERSION}/${kind_lower}_types.go"
-${GOMPLATE} < "hack/helpers/apis/GROUP_LOWER/APIVERSION/doc.go.tmpl" > "apis/${group_lower}/${APIVERSION}/doc.go"
-${GOMPLATE} < "hack/helpers/apis/GROUP_LOWER/APIVERSION/groupversion_info.go.tmpl" > "apis/${group_lower}/${APIVERSION}/groupversion_info.go"
+${GOMPLATE} <"hack/helpers/apis/GROUP_LOWER/GROUP_LOWER.go.tmpl" >"apis/${group_lower}/${group_lower}.go"
+${GOMPLATE} <"hack/helpers/apis/GROUP_LOWER/APIVERSION/KIND_LOWER_types.go.tmpl" >"apis/${group_lower}/${APIVERSION}/${kind_lower}_types.go"
+${GOMPLATE} <"hack/helpers/apis/GROUP_LOWER/APIVERSION/doc.go.tmpl" >"apis/${group_lower}/${APIVERSION}/doc.go"
+${GOMPLATE} <"hack/helpers/apis/GROUP_LOWER/APIVERSION/groupversion_info.go.tmpl" >"apis/${group_lower}/${APIVERSION}/groupversion_info.go"
 
 mkdir -p "internal/controller/${kind_lower}"
-${GOMPLATE} < "hack/helpers/controller/KIND_LOWER/KIND_LOWER.go.tmpl" > "internal/controller/${kind_lower}/${kind_lower}.go"
-${GOMPLATE} < "hack/helpers/controller/KIND_LOWER/KIND_LOWER_test.go.tmpl" > "internal/controller/${kind_lower}/${kind_lower}_test.go"
-
-
-
+${GOMPLATE} <"hack/helpers/controller/KIND_LOWER/KIND_LOWER.go.tmpl" >"internal/controller/${kind_lower}/${kind_lower}.go"
+${GOMPLATE} <"hack/helpers/controller/KIND_LOWER/KIND_LOWER_test.go.tmpl" >"internal/controller/${kind_lower}/${kind_lower}_test.go"
