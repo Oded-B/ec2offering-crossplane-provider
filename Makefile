@@ -1,7 +1,7 @@
 # ====================================================================================
 # Setup Project
-PROJECT_NAME := provider-ec2offering
-PROJECT_REPO := github.com/crossplane/$(PROJECT_NAME)
+PROJECT_NAME := ec2offering-crossplane-provider
+PROJECT_REPO := github.com/Oded-B/$(PROJECT_NAME)
 
 PLATFORMS ?= linux_amd64 linux_arm64
 -include build/makelib/common.mk
