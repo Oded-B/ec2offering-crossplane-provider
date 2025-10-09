@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Oded-B/ec2offering-crossplane-provider/apis/ec2/v1alpha1"
+	"github.com/Oded-B/ec2offering-crossplane-provider/internal/features"
+
 	"github.com/crossplane/crossplane-runtime/pkg/feature"
 
 	"github.com/pkg/errors"
@@ -35,16 +38,18 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	"github.com/crossplane/crossplane-runtime/pkg/statemetrics"
 
-	"ec2offering-crossplane-provider/apis/ec2/v1alpha1"
-	apisv1alpha1 "ec2offering-crossplane-provider/apis/v1alpha1"
-	"ec2offering-crossplane-provider/internal/features"
+	apisv1alpha1 "github.com/Oded-B/ec2offering-crossplane-provider/apis/v1alpha1"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 const (
-	errNotInstanceTypeOffering    = "managed resource is not a InstanceTypeOffering custom resource"
-	errTrackPCUsage = "cannot track ProviderConfig usage"
-	errGetPC        = "cannot get ProviderConfig"
-	errGetCreds     = "cannot get credentials"
+	errNotInstanceTypeOffering = "managed resource is not a InstanceTypeOffering custom resource"
+	errTrackPCUsage            = "cannot track ProviderConfig usage"
+	errGetPC                   = "cannot get ProviderConfig"
+	errGetCreds                = "cannot get credentials"
 
 	errNewClient = "cannot create new Service"
 )
@@ -52,9 +57,7 @@ const (
 // A NoOpService does nothing.
 type NoOpService struct{}
 
-var (
-	newNoOpService = func(_ []byte) (interface{}, error) { return &NoOpService{}, nil }
-)
+var newNoOpService = func(_ []byte) (interface{}, error) { return &NoOpService{}, nil }
 
 // Setup adds a controller that reconciles InstanceTypeOffering managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
@@ -69,7 +72,8 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
-			newServiceFn: newNoOpService}),
+			newServiceFn: newNoOpService,
+		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
@@ -132,6 +136,11 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, errGetPC)
 	}
 
+	// TODO get region from provider config
+	cfg, _ := config.LoadDefaultConfig(ctx, config.WithRegion("eu-west-1"))
+	// TODO errir handling
+	ec2Client := ec2.NewFromConfig(cfg)
+
 	cd := pc.Spec.Credentials
 	data, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.kube, cd.CommonCredentialSelectors)
 	if err != nil {
@@ -143,7 +152,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, errNewClient)
 	}
 
-	return &external{service: svc}, nil
+	return &external{service: svc, ec2Client: *ec2Client}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
@@ -151,7 +160,8 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 type external struct {
 	// A 'client' used to connect to the external resource API. In practice this
 	// would be something like an AWS SDK client.
-	service interface{}
+	service   interface{}
+	ec2Client ec2.Client
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -187,6 +197,34 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	fmt.Printf("Creating: %+v", cr)
+
+	locationFilterName := "location"
+	params := &ec2.DescribeInstanceTypeOfferingsInput{
+		LocationType: ec2types.LocationTypeRegion,
+		Filters: []ec2types.Filter{
+			{
+				Name:   &locationFilterName,
+				Values: []string{"eu-west-1"},
+				// TODO  get region (from CR? provider config?)
+			},
+		},
+	}
+
+	instanceOffering, _ := c.ec2Client.DescribeInstanceTypeOfferings(ctx, params)
+
+	// Map AWS response to our observation struct
+	cr.Status.AtProvider.NextToken = instanceOffering.NextToken
+
+	// Convert AWS InstanceTypeOfferings to our struct
+	offerings := make([]v1alpha1.InstanceTypeOfferingInfo, len(instanceOffering.InstanceTypeOfferings))
+	for i, offering := range instanceOffering.InstanceTypeOfferings {
+		offerings[i] = v1alpha1.InstanceTypeOfferingInfo{
+			InstanceType: string(offering.InstanceType),
+			Location:     *offering.Location,
+			LocationType: string(offering.LocationType),
+		}
+	}
+	cr.Status.AtProvider.InstanceTypeOfferings = offerings
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the

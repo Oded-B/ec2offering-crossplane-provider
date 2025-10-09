@@ -32,8 +32,17 @@ type InstanceTypeOfferingParameters struct {
 
 // InstanceTypeOfferingObservation are the observable fields of a InstanceTypeOffering.
 type InstanceTypeOfferingObservation struct {
-	ConfigurableField string `json:"configurableField"`
-	ObservableField   string `json:"observableField,omitempty"`
+	// InstanceTypeOfferings contains the entire AWS DescribeInstanceTypeOfferingsOutput response
+	InstanceTypeOfferings []InstanceTypeOfferingInfo `json:"instanceTypeOfferings,omitempty"`
+	// NextToken for pagination if there are more results
+	NextToken *string `json:"nextToken,omitempty"`
+}
+
+// InstanceTypeOfferingInfo represents an individual instance type offering from AWS
+type InstanceTypeOfferingInfo struct {
+	InstanceType string `json:"instanceType"`
+	Location     string `json:"location"`
+	LocationType string `json:"locationType"`
 }
 
 // A InstanceTypeOfferingSpec defines the desired state of a InstanceTypeOffering.
