@@ -1,0 +1,9 @@
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: InstanceTypeOffering
+metadata:
+  name: example1
+spec:
+  forProvider:
+    configurableField: test
+  providerConfigRef:
+    name: example
