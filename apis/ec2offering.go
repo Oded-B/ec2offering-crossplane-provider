@@ -20,12 +20,14 @@ package apis
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 
+	ec2v1alpha1 "github.com/Oded-B/ec2offering-crossplane-provider/apis/ec2/v1alpha1"
 	ec2offeringv1alpha1 "github.com/Oded-B/ec2offering-crossplane-provider/apis/v1alpha1"
 )
 
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes,
+		ec2v1alpha1.SchemeBuilder.AddToScheme,
 		ec2offeringv1alpha1.SchemeBuilder.AddToScheme,
 	)
 }

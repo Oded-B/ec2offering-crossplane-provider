@@ -60,6 +60,11 @@ type NoOpService struct{}
 var newNoOpService = func(_ []byte) (interface{}, error) { return &NoOpService{}, nil }
 
 // Setup adds a controller that reconciles InstanceTypeOffering managed resources.
+// +kubebuilder:rbac:groups=ec2.ec2offering.crossplane.io,resources=instancetypeofferings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=ec2.ec2offering.crossplane.io,resources=instancetypeofferings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=ec2.ec2offering.crossplane.io,resources=instancetypeofferings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=ec2offering.crossplane.io,resources=providerconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=ec2offering.crossplane.io,resources=providerconfigs/status,verbs=get
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1alpha1.InstanceTypeOfferingGroupKind)
 
