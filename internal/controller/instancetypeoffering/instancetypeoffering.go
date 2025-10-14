@@ -19,6 +19,7 @@ package instancetypeoffering
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Oded-B/ec2offering-crossplane-provider/apis/ec2/v1alpha1"
 	"github.com/Oded-B/ec2offering-crossplane-provider/internal/features"
@@ -141,9 +142,11 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, errGetPC)
 	}
 
-	// TODO get region from provider config
-	cfg, _ := config.LoadDefaultConfig(ctx, config.WithRegion("eu-west-1"))
-	// TODO errir handling
+	// Get region from the managed resource spec
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cr.Spec.ForProvider.AWSRegion))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load AWS config")
+	}
 	ec2Client := ec2.NewFromConfig(cfg)
 
 	cd := pc.Spec.Credentials
@@ -175,7 +178,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.New(errNotInstanceTypeOffering)
 	}
 
-	fmt.Printf("Observing: %+v", cr)
+	fmt.Printf("Observing: %+v(NS:%+v)", cr.GetName(), cr.GetNamespace())
 
 	// Query AWS EC2 for instance type offerings using the region from the spec
 	locationFilterName := "location"
@@ -189,7 +192,14 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		},
 	}
 
+	// Time the AWS API call
+	startTime := time.Now()
 	instanceOffering, err := c.ec2Client.DescribeInstanceTypeOfferings(ctx, params)
+	duration := time.Since(startTime)
+
+	// Log the timing information
+	fmt.Printf("DescribeInstanceTypeOfferings call took %v for region %s, fetch result: %+v\n", duration, cr.Spec.ForProvider.AWSRegion, len(instanceOffering.InstanceTypeOfferings))
+
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to describe instance type offerings")
 	}
