@@ -1,0 +1,29 @@
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: InstanceTypeOffering
+metadata:
+  labels:
+    foo: bar2
+  name: mexico
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    awsRegion: mx-central-1
+  managementPolicies:
+    - "*"
+  providerConfigRef:
+    name: example
+---
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: InstanceTypeOffering
+metadata:
+  labels:
+    foo: bar2
+  name: virginia
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    awsRegion: us-east-1
+  managementPolicies:
+    - "*"
+  providerConfigRef:
+    name: example

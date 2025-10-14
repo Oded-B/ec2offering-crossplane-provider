@@ -75,10 +75,13 @@ spec:
                 description: InstanceTypeOfferingParameters are the configurable fields
                   of a InstanceTypeOffering.
                 properties:
-                  configurableField:
+                  awsRegion:
+                    description: AWSRegion specifies the AWS region to query for instance
+                      type offerings
+                    pattern: ^[a-z0-9-]+$
                     type: string
                 required:
-                - configurableField
+                - awsRegion
                 type: object
               managementPolicies:
                 default:

@@ -27,7 +27,10 @@ import (
 
 // InstanceTypeOfferingParameters are the configurable fields of a InstanceTypeOffering.
 type InstanceTypeOfferingParameters struct {
-	ConfigurableField string `json:"configurableField"`
+	// AWSRegion specifies the AWS region to query for instance type offerings
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=^[a-z0-9-]+$
+	AWSRegion string `json:"awsRegion"`
 }
 
 // InstanceTypeOfferingObservation are the observable fields of a InstanceTypeOffering.

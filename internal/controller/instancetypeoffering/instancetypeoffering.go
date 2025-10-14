@@ -175,8 +175,38 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.New(errNotInstanceTypeOffering)
 	}
 
-	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
+
+	// Query AWS EC2 for instance type offerings using the region from the spec
+	locationFilterName := "location"
+	params := &ec2.DescribeInstanceTypeOfferingsInput{
+		LocationType: ec2types.LocationTypeRegion,
+		Filters: []ec2types.Filter{
+			{
+				Name:   &locationFilterName,
+				Values: []string{cr.Spec.ForProvider.AWSRegion},
+			},
+		},
+	}
+
+	instanceOffering, err := c.ec2Client.DescribeInstanceTypeOfferings(ctx, params)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "failed to describe instance type offerings")
+	}
+
+	// Map AWS response to our observation struct
+	cr.Status.AtProvider.NextToken = instanceOffering.NextToken
+
+	// Convert AWS InstanceTypeOfferings to our struct
+	offerings := make([]v1alpha1.InstanceTypeOfferingInfo, len(instanceOffering.InstanceTypeOfferings))
+	for i, offering := range instanceOffering.InstanceTypeOfferings {
+		offerings[i] = v1alpha1.InstanceTypeOfferingInfo{
+			InstanceType: string(offering.InstanceType),
+			Location:     *offering.Location,
+			LocationType: string(offering.LocationType),
+		}
+	}
+	cr.Status.AtProvider.InstanceTypeOfferings = offerings
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -203,34 +233,8 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	fmt.Printf("Creating: %+v", cr)
 
-	locationFilterName := "location"
-	params := &ec2.DescribeInstanceTypeOfferingsInput{
-		LocationType: ec2types.LocationTypeRegion,
-		Filters: []ec2types.Filter{
-			{
-				Name:   &locationFilterName,
-				Values: []string{"eu-west-1"},
-				// TODO  get region (from CR? provider config?)
-			},
-		},
-	}
-
-	instanceOffering, _ := c.ec2Client.DescribeInstanceTypeOfferings(ctx, params)
-
-	// Map AWS response to our observation struct
-	cr.Status.AtProvider.NextToken = instanceOffering.NextToken
-
-	// Convert AWS InstanceTypeOfferings to our struct
-	offerings := make([]v1alpha1.InstanceTypeOfferingInfo, len(instanceOffering.InstanceTypeOfferings))
-	for i, offering := range instanceOffering.InstanceTypeOfferings {
-		offerings[i] = v1alpha1.InstanceTypeOfferingInfo{
-			InstanceType: string(offering.InstanceType),
-			Location:     *offering.Location,
-			LocationType: string(offering.LocationType),
-		}
-	}
-	cr.Status.AtProvider.InstanceTypeOfferings = offerings
-
+	// For read-only resources like instance type offerings, Create is typically a no-op
+	// The actual data fetching happens in the Observe function
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
