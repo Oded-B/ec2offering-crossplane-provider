@@ -18,7 +18,10 @@ package spotadvisordata
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/Oded-B/ec2offering-crossplane-provider/apis/ec2/v1alpha1"
@@ -50,9 +53,42 @@ const (
 	errTrackPCUsage       = "cannot track ProviderConfig usage"
 	errGetPC              = "cannot get ProviderConfig"
 	errGetCreds           = "cannot get credentials"
+	errFetchSpotData      = "cannot fetch spot advisor data"
+	errParseSpotData      = "cannot parse spot advisor data"
 
 	errNewClient = "cannot create new Service"
+
+	spotAdvisorDataURL = "https://spot-bid-advisor.s3.amazonaws.com/spot-advisor-data.json"
 )
+
+// SpotAdvisorResponse represents the structure of the spot advisor data from AWS
+type SpotAdvisorResponse struct {
+	InstanceTypes map[string]InstanceTypeInfo                 `json:"instance_types"`
+	SpotAdvisor   map[string]map[string]map[string]RegionInfo `json:"spot_advisor"`
+	GlobalRate    string                                      `json:"global_rate"`
+	Ranges        []RangeInfo                                 `json:"ranges"`
+}
+
+// InstanceTypeInfo represents instance type information from the API
+type InstanceTypeInfo struct {
+	EMR   bool    `json:"emr"`
+	Cores int     `json:"cores"`
+	RAMGB float64 `json:"ram_gb"`
+}
+
+// RegionInfo represents spot advisor data for a specific region
+type RegionInfo struct {
+	S int `json:"s"` // Spot interruption frequency
+	R int `json:"r"` // Spot interruption rate
+}
+
+// RangeInfo represents range information from the API
+type RangeInfo struct {
+	Index int    `json:"index"`
+	Label string `json:"label"`
+	Dots  int    `json:"dots"`
+	Max   int    `json:"max"`
+}
 
 // A NoOpService does nothing.
 type NoOpService struct{}
@@ -179,18 +215,38 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	fmt.Printf("Observing SpotAdvisorData: %+v(NS:%+v)", cr.GetName(), cr.GetNamespace())
 
-	// For now, just set some placeholder data
-	// TODO: Implement actual spot advisor data fetching logic
-	cr.Status.AtProvider.Data = fmt.Sprintf("Spot advisor data for region: %s", cr.Spec.ForProvider.AWSRegion)
-
 	// Time the operation
 	startTime := time.Now()
-	// Simulate some processing time
-	time.Sleep(100 * time.Millisecond)
+
+	// Fetch spot advisor data from AWS S3
+	spotData, err := c.fetchSpotAdvisorData(ctx)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, errFetchSpotData)
+	}
+
+	// Filter data for the specific region and OS
+	filteredData, err := c.filterDataByRegion(spotData, cr.Spec.ForProvider.AWSRegion, cr.Spec.ForProvider.OS)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot filter data by region")
+	}
+
+	// Update the status with the filtered data
+	cr.Status.AtProvider = *filteredData
+
 	duration := time.Since(startTime)
 
 	// Log the timing information
-	fmt.Printf("SpotAdvisorData observation took %v for region %s\n", duration, cr.Spec.ForProvider.AWSRegion)
+	totalSpotAdvisorEntries := 0
+	for _, osData := range filteredData.SpotAdvisor {
+		totalSpotAdvisorEntries += len(osData)
+	}
+	// Get the OS being filtered
+	os := "Linux"
+	if cr.Spec.ForProvider.OS != nil && *cr.Spec.ForProvider.OS != "" {
+		os = *cr.Spec.ForProvider.OS
+	}
+	fmt.Printf("SpotAdvisorData observation took %v for region %s (OS: %s), fetched %d instance types, %d spot advisor entries, %d ranges\n",
+		duration, cr.Spec.ForProvider.AWSRegion, os, len(filteredData.InstanceTypes), totalSpotAdvisorEntries, len(filteredData.Ranges))
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -254,4 +310,89 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 
 func (c *external) Disconnect(ctx context.Context) error {
 	return nil
+}
+
+// fetchSpotAdvisorData fetches the spot advisor data from AWS S3
+func (c *external) fetchSpotAdvisorData(ctx context.Context) (*SpotAdvisorResponse, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", spotAdvisorDataURL, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot create HTTP request")
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot fetch spot advisor data")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot read response body")
+	}
+
+	var spotData SpotAdvisorResponse
+	if err := json.Unmarshal(body, &spotData); err != nil {
+		return nil, errors.Wrap(err, errParseSpotData)
+	}
+
+	return &spotData, nil
+}
+
+// filterDataByRegion filters the spot advisor data to only include data for the specified region and OS
+func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region string, osFilter *string) (*v1alpha1.SpotAdvisorDataObservation, error) {
+	// Default to Linux if no OS filter is specified
+	os := "Linux"
+	if osFilter != nil && *osFilter != "" {
+		os = *osFilter
+	}
+	// Convert instance types data
+	instanceTypes := make(map[string]v1alpha1.InstanceTypeData)
+	for instanceType, info := range spotData.InstanceTypes {
+		instanceTypes[instanceType] = v1alpha1.InstanceTypeData{
+			EMR:   info.EMR,
+			Cores: info.Cores,
+			RAMGB: fmt.Sprintf("%.1f", info.RAMGB),
+		}
+	}
+
+	// Filter spot advisor data for the specific region and OS
+	spotAdvisor := make(map[string]map[string]v1alpha1.RegionData)
+	if regionData, exists := spotData.SpotAdvisor[region]; exists {
+		// Only include the specified OS
+		if osData, osExists := regionData[os]; osExists {
+			spotAdvisor[os] = make(map[string]v1alpha1.RegionData)
+			for instanceType, regionInfo := range osData {
+				spotAdvisor[os][instanceType] = v1alpha1.RegionData{
+					S: regionInfo.S,
+					R: regionInfo.R,
+				}
+			}
+		}
+	}
+
+	// Convert ranges data
+	ranges := make([]v1alpha1.RangeData, len(spotData.Ranges))
+	for i, rangeInfo := range spotData.Ranges {
+		ranges[i] = v1alpha1.RangeData{
+			Index: rangeInfo.Index,
+			Label: rangeInfo.Label,
+			Dots:  rangeInfo.Dots,
+			Max:   rangeInfo.Max,
+		}
+	}
+
+	return &v1alpha1.SpotAdvisorDataObservation{
+		InstanceTypes: instanceTypes,
+		SpotAdvisor:   spotAdvisor,
+		GlobalRate:    spotData.GlobalRate,
+		Ranges:        ranges,
+	}, nil
 }

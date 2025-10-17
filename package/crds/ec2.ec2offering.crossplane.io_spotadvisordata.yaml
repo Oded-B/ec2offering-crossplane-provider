@@ -79,6 +79,14 @@ spec:
                       advisor data
                     pattern: ^[a-z0-9-]+$
                     type: string
+                  os:
+                    default: Linux
+                    description: OS specifies the operating system to filter for (Linux,
+                      Windows, etc.)
+                    enum:
+                    - Linux
+                    - Windows
+                    type: string
                 required:
                 - awsRegion
                 type: object
@@ -257,9 +265,54 @@ spec:
                 description: SpotAdvisorDataObservation are the observable fields
                   of a SpotAdvisorData.
                 properties:
-                  data:
-                    description: Data contains the spot advisor data for the region
+                  globalRate:
+                    description: GlobalRate contains the global rate information
                     type: string
+                  instanceTypes:
+                    additionalProperties:
+                      description: InstanceTypeData represents instance type information
+                      properties:
+                        cores:
+                          type: integer
+                        emr:
+                          type: boolean
+                        ram_gb:
+                          type: string
+                      type: object
+                    description: InstanceTypes contains the instance types data from
+                      spot advisor
+                    type: object
+                  ranges:
+                    description: Ranges contains the ranges data from spot advisor
+                    items:
+                      description: RangeData represents range information from spot
+                        advisor
+                      properties:
+                        dots:
+                          type: integer
+                        index:
+                          type: integer
+                        label:
+                          type: string
+                        max:
+                          type: integer
+                      type: object
+                    type: array
+                  spotAdvisor:
+                    additionalProperties:
+                      additionalProperties:
+                        description: RegionData represents spot advisor data for a
+                          specific region
+                        properties:
+                          r:
+                            type: integer
+                          s:
+                            type: integer
+                        type: object
+                      type: object
+                    description: SpotAdvisor contains the spot advisor data filtered
+                      by region
+                    type: object
                 type: object
               conditions:
                 description: Conditions of the resource.

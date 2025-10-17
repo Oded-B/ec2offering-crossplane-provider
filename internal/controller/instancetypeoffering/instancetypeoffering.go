@@ -197,12 +197,12 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	instanceOffering, err := c.ec2Client.DescribeInstanceTypeOfferings(ctx, params)
 	duration := time.Since(startTime)
 
-	// Log the timing information
-	fmt.Printf("DescribeInstanceTypeOfferings call took %v for region %s, fetch result: %+v\n", duration, cr.Spec.ForProvider.AWSRegion, len(instanceOffering.InstanceTypeOfferings))
-
 	if err != nil {
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to describe instance type offerings")
 	}
+
+	// Log the timing information
+	fmt.Printf("DescribeInstanceTypeOfferings call took %v for region %s, fetch result: %+v\n", duration, cr.Spec.ForProvider.AWSRegion, len(instanceOffering.InstanceTypeOfferings))
 
 	// Map AWS response to our observation struct
 	cr.Status.AtProvider.NextToken = instanceOffering.NextToken

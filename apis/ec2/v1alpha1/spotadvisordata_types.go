@@ -31,12 +31,45 @@ type SpotAdvisorDataParameters struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=^[a-z0-9-]+$
 	AWSRegion string `json:"awsRegion"`
+
+	// OS specifies the operating system to filter for (Linux, Windows, etc.)
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=Linux
+	// +kubebuilder:validation:Enum=Linux;Windows
+	OS *string `json:"os,omitempty"`
 }
 
 // SpotAdvisorDataObservation are the observable fields of a SpotAdvisorData.
 type SpotAdvisorDataObservation struct {
-	// Data contains the spot advisor data for the region
-	Data string `json:"data,omitempty"`
+	// InstanceTypes contains the instance types data from spot advisor
+	InstanceTypes map[string]InstanceTypeData `json:"instanceTypes,omitempty"`
+	// SpotAdvisor contains the spot advisor data filtered by region
+	SpotAdvisor map[string]map[string]RegionData `json:"spotAdvisor,omitempty"`
+	// GlobalRate contains the global rate information
+	GlobalRate string `json:"globalRate,omitempty"`
+	// Ranges contains the ranges data from spot advisor
+	Ranges []RangeData `json:"ranges,omitempty"`
+}
+
+// InstanceTypeData represents instance type information
+type InstanceTypeData struct {
+	EMR   bool   `json:"emr,omitempty"`
+	Cores int    `json:"cores,omitempty"`
+	RAMGB string `json:"ram_gb,omitempty"`
+}
+
+// RegionData represents spot advisor data for a specific region
+type RegionData struct {
+	S int `json:"s,omitempty"` // Spot interruption frequency
+	R int `json:"r,omitempty"` // Spot interruption rate
+}
+
+// RangeData represents range information from spot advisor
+type RangeData struct {
+	Index int    `json:"index,omitempty"` // Index of the range
+	Label string `json:"label,omitempty"` // Label for the range (e.g., "<5%", "5-10%")
+	Dots  int    `json:"dots,omitempty"`  // Number of dots
+	Max   int    `json:"max,omitempty"`   // Maximum value
 }
 
 // A SpotAdvisorDataSpec defines the desired state of a SpotAdvisorData.

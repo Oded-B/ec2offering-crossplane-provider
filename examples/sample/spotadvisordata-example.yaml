@@ -2,7 +2,8 @@ apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
 kind: SpotAdvisorData
 metadata:
   labels:
-    foo: bar
+    app: spot-advisor
+    region: us-east-1
   name: us-east-1-spot-data
 spec:
   deletionPolicy: Delete
@@ -17,7 +18,8 @@ apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
 kind: SpotAdvisorData
 metadata:
   labels:
-    foo: bar
+    app: spot-advisor
+    region: us-west-2
   name: us-west-2-spot-data
 spec:
   deletionPolicy: Delete
