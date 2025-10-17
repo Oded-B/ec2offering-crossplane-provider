@@ -225,10 +225,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	// Filter data for the specific region and OS
-	filteredData, err := c.filterDataByRegion(spotData, cr.Spec.ForProvider.AWSRegion, cr.Spec.ForProvider.OS)
-	if err != nil {
-		return managed.ExternalObservation{}, errors.Wrap(err, "cannot filter data by region")
-	}
+	filteredData := c.filterDataByRegion(spotData, cr.Spec.ForProvider.AWSRegion, cr.Spec.ForProvider.OS)
 
 	// Update the status with the filtered data
 	cr.Status.AtProvider = *filteredData
@@ -327,7 +324,12 @@ func (c *external) fetchSpotAdvisorData(ctx context.Context) (*SpotAdvisorRespon
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot fetch spot advisor data")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the error but don't fail the operation
+			fmt.Printf("Warning: failed to close response body: %v\n", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -347,7 +349,7 @@ func (c *external) fetchSpotAdvisorData(ctx context.Context) (*SpotAdvisorRespon
 }
 
 // filterDataByRegion filters the spot advisor data to only include data for the specified region and OS
-func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region string, osFilter *string) (*v1alpha1.SpotAdvisorDataObservation, error) {
+func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region string, osFilter *string) *v1alpha1.SpotAdvisorDataObservation {
 	// Default to Linux if no OS filter is specified
 	os := "Linux"
 	if osFilter != nil && *osFilter != "" {
@@ -394,5 +396,5 @@ func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region stri
 		SpotAdvisor:   spotAdvisor,
 		GlobalRate:    spotData.GlobalRate,
 		Ranges:        ranges,
-	}, nil
+	}
 }
