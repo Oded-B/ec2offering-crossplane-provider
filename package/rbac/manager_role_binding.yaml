@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: ec2off-rolebinding
+  name: ec2off-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: ec2off-role
+  name: ec2off-manager-role
 subjects:
 - kind: ServiceAccount
   name: controller-manager

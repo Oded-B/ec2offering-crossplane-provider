@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: ec2off-role
+  name: ec2off-manager-role
 rules:
 - apiGroups:
   - ec2.ec2offering.crossplane.io
@@ -27,6 +27,32 @@ rules:
   - ec2.ec2offering.crossplane.io
   resources:
   - instancetypeofferings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ec2.ec2offering.crossplane.io
+  resources:
+  - spotadvisordatas
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ec2.ec2offering.crossplane.io
+  resources:
+  - spotadvisordatas/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ec2.ec2offering.crossplane.io
+  resources:
+  - spotadvisordatas/finalizers
   verbs:
   - update
 - apiGroups:
