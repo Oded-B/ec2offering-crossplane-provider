@@ -30,6 +30,32 @@ rules:
   verbs:
   - update
 - apiGroups:
+  - ec2.ec2offering.crossplane.io
+  resources:
+  - spotadvisordatas
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ec2.ec2offering.crossplane.io
+  resources:
+  - spotadvisordatas/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ec2.ec2offering.crossplane.io
+  resources:
+  - spotadvisordatas/finalizers
+  verbs:
+  - update
+- apiGroups:
   - ec2offering.crossplane.io
   resources:
   - providerconfigs

@@ -1,0 +1,29 @@
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: SpotAdvisorData
+metadata:
+  labels:
+    foo: bar
+  name: us-east-1-spot-data
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    awsRegion: us-east-1
+  managementPolicies:
+    - "*"
+  providerConfigRef:
+    name: example
+---
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: SpotAdvisorData
+metadata:
+  labels:
+    foo: bar
+  name: us-west-2-spot-data
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    awsRegion: us-west-2
+  managementPolicies:
+    - "*"
+  providerConfigRef:
+    name: example
