@@ -29,3 +29,25 @@ spec:
     - "*"
   providerConfigRef:
     name: example
+---
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: SpotAdvisorData
+metadata:
+  labels:
+    app: spot-advisor
+    region: us-east-1
+    filtered: "true"
+  name: us-east-1-spot-data-filtered
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    awsRegion: us-east-1
+    os: Linux
+    relevantInstanceFamilies:
+      - m7g
+      - c5
+      - t3
+  managementPolicies:
+    - "*"
+  providerConfigRef:
+    name: example

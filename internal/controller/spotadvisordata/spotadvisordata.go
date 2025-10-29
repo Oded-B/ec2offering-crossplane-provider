@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Oded-B/ec2offering-crossplane-provider/apis/ec2/v1alpha1"
@@ -224,8 +225,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, errFetchSpotData)
 	}
 
-	// Filter data for the specific region and OS
-	filteredData := c.filterDataByRegion(spotData, cr.Spec.ForProvider.AWSRegion, cr.Spec.ForProvider.OS)
+	// Filter data for the specific region, OS, and instance families
+	filteredData := c.filterDataByRegion(spotData, cr.Spec.ForProvider.AWSRegion, cr.Spec.ForProvider.OS, cr.Spec.ForProvider.RelevantInstanceFamilies)
 
 	// Update the status with the filtered data
 	cr.Status.AtProvider = *filteredData
@@ -348,16 +349,23 @@ func (c *external) fetchSpotAdvisorData(ctx context.Context) (*SpotAdvisorRespon
 	return &spotData, nil
 }
 
-// filterDataByRegion filters the spot advisor data to only include data for the specified region and OS
-func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region string, osFilter *string) *v1alpha1.SpotAdvisorDataObservation {
+// filterDataByRegion filters the spot advisor data to only include data for the specified region, OS, and instance families
+func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region string, osFilter *string, instanceFamilies []string) *v1alpha1.SpotAdvisorDataObservation {
 	// Default to Linux if no OS filter is specified
 	os := "Linux"
 	if osFilter != nil && *osFilter != "" {
 		os = *osFilter
 	}
-	// Convert instance types data
+	// Convert instance types data and filter by instance families if specified
 	instanceTypes := make(map[string]v1alpha1.InstanceTypeData)
 	for instanceType, info := range spotData.InstanceTypes {
+		// Filter by instance families if specified
+		if len(instanceFamilies) > 0 {
+			if !c.isInstanceTypeInFamilies(instanceType, instanceFamilies) {
+				continue
+			}
+		}
+
 		instanceTypes[instanceType] = v1alpha1.InstanceTypeData{
 			EMR:   info.EMR,
 			Cores: info.Cores,
@@ -365,13 +373,20 @@ func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region stri
 		}
 	}
 
-	// Filter spot advisor data for the specific region and OS
+	// Filter spot advisor data for the specific region, OS, and instance families
 	spotAdvisor := make(map[string]map[string]v1alpha1.RegionData)
 	if regionData, exists := spotData.SpotAdvisor[region]; exists {
 		// Only include the specified OS
 		if osData, osExists := regionData[os]; osExists {
 			spotAdvisor[os] = make(map[string]v1alpha1.RegionData)
 			for instanceType, regionInfo := range osData {
+				// Filter by instance families if specified
+				if len(instanceFamilies) > 0 {
+					if !c.isInstanceTypeInFamilies(instanceType, instanceFamilies) {
+						continue
+					}
+				}
+
 				spotAdvisor[os][instanceType] = v1alpha1.RegionData{
 					S: regionInfo.S,
 					R: regionInfo.R,
@@ -397,4 +412,26 @@ func (c *external) filterDataByRegion(spotData *SpotAdvisorResponse, region stri
 		GlobalRate:    spotData.GlobalRate,
 		Ranges:        ranges,
 	}
+}
+
+// isInstanceTypeInFamilies checks if the given instance type belongs to any of the specified families
+func (c *external) isInstanceTypeInFamilies(instanceType string, families []string) bool {
+	// Extract family from instance type (substring before the first dot)
+	dotIndex := strings.Index(instanceType, ".")
+
+	if dotIndex == -1 {
+		// No dot found, instance type doesn't follow expected format
+		return false
+	}
+
+	instanceFamily := instanceType[:dotIndex]
+
+	// Check if the instance family is in the list of relevant families
+	for _, family := range families {
+		if instanceFamily == family {
+			return true
+		}
+	}
+
+	return false
 }

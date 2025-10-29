@@ -37,6 +37,10 @@ type SpotAdvisorDataParameters struct {
 	// +kubebuilder:default=Linux
 	// +kubebuilder:validation:Enum=Linux;Windows
 	OS *string `json:"os,omitempty"`
+
+	// RelevantInstanceFamilies filters results to only include instance types from the specified families
+	// +kubebuilder:validation:Optional
+	RelevantInstanceFamilies []string `json:"relevantInstanceFamilies,omitempty"`
 }
 
 // SpotAdvisorDataObservation are the observable fields of a SpotAdvisorData.
