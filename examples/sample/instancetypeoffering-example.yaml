@@ -27,3 +27,20 @@ spec:
     - "*"
   providerConfigRef:
     name: example
+---
+apiVersion: ec2.ec2offering.crossplane.io/v1alpha1
+kind: InstanceTypeOffering
+metadata:
+  name: virginia-filtered
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    awsRegion: us-east-1
+    relevantInstanceFamilies:
+      - m7g
+      - c5
+      - t3
+  managementPolicies:
+    - "*"
+  providerConfigRef:
+    name: example

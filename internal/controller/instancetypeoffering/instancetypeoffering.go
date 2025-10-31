@@ -19,6 +19,7 @@ package instancetypeoffering
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Oded-B/ec2offering-crossplane-provider/apis/ec2/v1alpha1"
@@ -207,14 +208,23 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	// Map AWS response to our observation struct
 	cr.Status.AtProvider.NextToken = instanceOffering.NextToken
 
-	// Convert AWS InstanceTypeOfferings to our struct
-	offerings := make([]v1alpha1.InstanceTypeOfferingInfo, len(instanceOffering.InstanceTypeOfferings))
-	for i, offering := range instanceOffering.InstanceTypeOfferings {
-		offerings[i] = v1alpha1.InstanceTypeOfferingInfo{
-			InstanceType: string(offering.InstanceType),
+	// Convert AWS InstanceTypeOfferings to our struct and filter by instance families if specified
+	offerings := make([]v1alpha1.InstanceTypeOfferingInfo, 0, len(instanceOffering.InstanceTypeOfferings))
+	for _, offering := range instanceOffering.InstanceTypeOfferings {
+		instanceType := string(offering.InstanceType)
+
+		// Filter by instance families if specified
+		if len(cr.Spec.ForProvider.RelevantInstanceFamilies) > 0 {
+			if !c.isInstanceTypeInFamilies(instanceType, cr.Spec.ForProvider.RelevantInstanceFamilies) {
+				continue
+			}
+		}
+
+		offerings = append(offerings, v1alpha1.InstanceTypeOfferingInfo{
+			InstanceType: instanceType,
 			Location:     *offering.Location,
 			LocationType: string(offering.LocationType),
-		}
+		})
 	}
 	cr.Status.AtProvider.InstanceTypeOfferings = offerings
 
@@ -280,4 +290,26 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 
 func (c *external) Disconnect(ctx context.Context) error {
 	return nil
+}
+
+// isInstanceTypeInFamilies checks if the given instance type belongs to any of the specified families
+func (c *external) isInstanceTypeInFamilies(instanceType string, families []string) bool {
+	// Extract family from instance type (substring before the first dot)
+	dotIndex := strings.Index(instanceType, ".")
+
+	if dotIndex == -1 {
+		// No dot found, instance type doesn't follow expected format
+		return false
+	}
+
+	instanceFamily := instanceType[:dotIndex]
+
+	// Check if the instance family is in the list of relevant families
+	for _, family := range families {
+		if instanceFamily == family {
+			return true
+		}
+	}
+
+	return false
 }

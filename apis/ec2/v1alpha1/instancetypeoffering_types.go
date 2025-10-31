@@ -31,6 +31,10 @@ type InstanceTypeOfferingParameters struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=^[a-z0-9-]+$
 	AWSRegion string `json:"awsRegion"`
+
+	// RelevantInstanceFamilies filters results to only include instance types from the specified families
+	// +kubebuilder:validation:Optional
+	RelevantInstanceFamilies []string `json:"relevantInstanceFamilies,omitempty"`
 }
 
 // InstanceTypeOfferingObservation are the observable fields of a InstanceTypeOffering.
