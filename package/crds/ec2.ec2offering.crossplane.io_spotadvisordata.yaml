@@ -87,6 +87,12 @@ spec:
                     - Linux
                     - Windows
                     type: string
+                  relevantInstanceFamilies:
+                    description: RelevantInstanceFamilies filters results to only
+                      include instance types from the specified families
+                    items:
+                      type: string
+                    type: array
                 required:
                 - awsRegion
                 type: object
