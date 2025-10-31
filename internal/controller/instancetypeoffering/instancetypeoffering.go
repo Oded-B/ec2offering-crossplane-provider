@@ -209,7 +209,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.NextToken = instanceOffering.NextToken
 
 	// Convert AWS InstanceTypeOfferings to our struct and filter by instance families if specified
-	var offerings []v1alpha1.InstanceTypeOfferingInfo
+	offerings := make([]v1alpha1.InstanceTypeOfferingInfo, 0, len(instanceOffering.InstanceTypeOfferings))
 	for _, offering := range instanceOffering.InstanceTypeOfferings {
 		instanceType := string(offering.InstanceType)
 
